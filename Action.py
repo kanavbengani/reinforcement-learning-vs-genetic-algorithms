@@ -9,3 +9,12 @@ class Action(Enum):
     ROTATE_GUN_LEFT = 4
     ROTATE_GUN_RIGHT = 5
     SHOOT = 6
+
+Action.move_delta = {
+    Action.MOVE_UP: (-1, 0),
+    Action.MOVE_DOWN: (1, 0),
+    Action.MOVE_LEFT: (0, -1),
+    Action.MOVE_RIGHT: (0, 1)
+}
+
+Action.rotate_actions = set([Action.ROTATE_GUN_LEFT, Action.ROTATE_GUN_RIGHT])
