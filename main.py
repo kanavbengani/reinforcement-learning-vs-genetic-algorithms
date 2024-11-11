@@ -8,7 +8,7 @@ from GA import GA
 import time
 
 
-NUM_TILES = 15
+NUM_TILES = 5
 
 # pygame main method
 def run_game(player1: Character, player2: Character):
@@ -22,62 +22,72 @@ def run_game(player1: Character, player2: Character):
     board.drawGrid(canvas, tile_size)
     player1.draw(canvas, tile_size)
     player2.draw(canvas, tile_size)
+    pygame.display.flip()
+    time.sleep(2)
+
     while True: 
         for event in pygame.event.get(): 
             if event.type == pygame.QUIT: 
                 break
 
         board = player1.next_action(board)
-        if board.done:
+        if board.tied:
+            winner = None
             break
-        board = player2.next_action(board)
         if board.done:
+            winner = player1
+            break
+        
+        board = player2.next_action(board)
+        if board.tied:
+            winner = None
+            break
+        if board.done:
+            winner = player2
             break
         
         
         board.drawGrid(canvas, tile_size)
+        
+
         player1.draw(canvas, tile_size)
         player2.draw(canvas, tile_size)
 
         # update the board
         pygame.display.flip()
-
-        time.sleep(5)
-
-        
-    
-    winner = player1
-
-    return player1.next_players(), player2.next_players(), winner
+        time.sleep(0.5)
 
 
-def main():
-    player1 = Character(RL(), 0, 0, Direction.UP, 100, 100, 1, 100, 100)
-    player2 = Character(GA(), NUM_TILES - 1, NUM_TILES - 1, Direction.DOWN, 100, 100, 2, 100, 100)
-    playerQueue = [player2]
-    queueSize = 8
+    return player1, player2, winner
 
-    # run all games
-    for i in range(10000):
-        newPlayerQueue = []
 
-        # RL player plays against each of GA players in the queue
-        for player2 in playerQueue:
-            player1Queue, player2Queue = run_game(player1, player2)
-            player1 = player1Queue[0]
-            newPlayerQueue += player2Queue
+# def main():
+#     player1 = Character(RL(), 0, 0, Direction.UP, 100, 100, 1, 100, 100)
+#     player2 = Character(GA(), NUM_TILES - 1, NUM_TILES - 1, Direction.DOWN, 100, 100, 2, 100, 100)
+#     playerQueue = [player2]
+#     queueSize = 8
+
+#     # run all games
+#     for i in range(10000):
+#         newPlayerQueue = []
+
+#         # RL player plays against each of GA players in the queue
+#         for player2 in playerQueue:
+#             player1Queue, player2Queue = run_game(player1, player2)
+#             player1 = player1Queue[0]
+#             newPlayerQueue += player2Queue
         
         
-        # GA players play against each other
-        playersToWins = {player: 0 for player in newPlayerQueue}
-        for i in range(len(newPlayerQueue)):
-            for j in range(i, len(newPlayerQueue)):
-                _, _, winner = run_game(newPlayerQueue[i], newPlayerQueue[j])
-                playersToWins[winner] += 1
+#         # GA players play against each other
+#         playersToWins = {player: 0 for player in newPlayerQueue}
+#         for i in range(len(newPlayerQueue)):
+#             for j in range(i, len(newPlayerQueue)):
+#                 _, _, winner = run_game(newPlayerQueue[i], newPlayerQueue[j])
+#                 playersToWins[winner] += 1
         
-        # sort the number of wins and get top 8
-        topN = sorted(playersToWins.items(), key=lambda item: item[1], reverse=True)[:queueSize]
-        playerQueue = [i[0] for i in topN]
+#         # sort the number of wins and get top 8
+#         topN = sorted(playersToWins.items(), key=lambda item: item[1], reverse=True)[:queueSize]
+#         playerQueue = [i[0] for i in topN]
 
         # GA TYPE 1
         # run_game gives us 8 new/old GA agents through combining and mutating
@@ -98,7 +108,8 @@ def main():
         # set player queue to be the new 8 from run_game
 
 if __name__ == "__main__":
-    player1 = Character(RL(), 0, 0, Direction.DOWN, 100, 100, 1, 100, 100)
-    player2 = Character(GA(), NUM_TILES - 1, NUM_TILES - 1, Direction.UP, 100, 100, 2, 100, 100)
+    player1 = Character(RL(), 0, 0, Direction.DOWN, 5, 5, 1, 8, 8)
+    player2 = Character(RL(), NUM_TILES - 1, NUM_TILES - 1, Direction.UP, 5, 5, 1, 8, 8)
+    # player2 = Character(GA(), NUM_TILES - 1, NUM_TILES - 1, Direction.UP, 100, 100, 2, 100, 100)
 
     run_game(player1, player2)

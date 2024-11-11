@@ -28,11 +28,10 @@ class ActionFunction():
         if fuel <= 0: 
             raise Exception("No fuel")
 
+        new_row = row
+        new_col = col
         if action in list(Action.move_delta.keys()):
             change = Action.move_delta[action]
-            print("HERE")
-            print(row, col)
-            print(change)
             new_row = row + change[0]
             new_col = col + change[1]
             
@@ -63,7 +62,7 @@ class ActionFunction():
                 raise Exception("No fuel")
             else:
                 shift = 1 if action == Action.ROTATE_GUN_RIGHT else -1
-                direction = (direction.value + shift) % 4
+                direction = Direction((direction.value + shift) % 4)
 
         else: #shooting
             if ammo <= 0:
@@ -86,5 +85,4 @@ class ActionFunction():
 
     @abstractmethod
     def apply(self, row: int, col: int, direction: Direction, max_ammo: int, ammo: int, speed: int, max_fuel: int, fuel: int, board: Board): 
-        print("HERE3")
         pass
