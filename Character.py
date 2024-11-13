@@ -44,7 +44,7 @@ class Character:
     def draw(self, canvas, tile_size):
         image = pygame.image.load("tank.png").convert_alpha()
         image = pygame.transform.scale(image, (tile_size * .9, tile_size * .9))
-        image = pygame.transform.rotate(image, self.direction.value * 90)
+        image = pygame.transform.rotate(image, self.direction.value * -90)
             
         canvas.blit(image, (tile_size * 0.05 + self.col * tile_size, tile_size * 0.05 + self.row * tile_size))
         

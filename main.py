@@ -5,32 +5,32 @@ from Character import Character
 from Direction import Direction
 from RL import RL
 from GA import GA
+from tqdm import tqdm
 import time
-
+import sys
+import os
 
 NUM_TILES = 5
+TILE_SIZE = 50
+OPTIMAL = True # if you want to use the optimal policy
+gui_flag = True
+if gui_flag:
+    global canvas
+    canvas: pygame.Surface = pygame.display.set_mode((NUM_TILES * TILE_SIZE, NUM_TILES * TILE_SIZE))
 
 # pygame main method
 def run_game(player1: Character, player2: Character):
-    pygame.init()
+    board: Board = Board(NUM_TILES, (player1.row, player1.col), (player2.row, player2.col))
+    winner: Character = None
 
-    tile_size = 50
-    canvas = pygame.display.set_mode((NUM_TILES * tile_size, NUM_TILES * tile_size))
-    
-    board: Board = Board(NUM_TILES, (0, 0), (NUM_TILES - 1, NUM_TILES - 1))
+    if gui_flag:
+        pygame.init()
+        refresh(board, player1, player2)
 
-    board.drawGrid(canvas, tile_size)
-    player1.draw(canvas, tile_size)
-    player2.draw(canvas, tile_size)
-    pygame.display.flip()
-    time.sleep(2)
-
-    while True: 
-        for event in pygame.event.get(): 
-            if event.type == pygame.QUIT: 
-                break
-
+    i = 0
+    while i < 100: 
         board = player1.next_action(board)
+        refresh(board, player1, player2)
         if board.tied:
             winner = None
             break
@@ -39,26 +39,23 @@ def run_game(player1: Character, player2: Character):
             break
         
         board = player2.next_action(board)
+        refresh(board, player1, player2)
         if board.tied:
             winner = None
             break
         if board.done:
             winner = player2
             break
-        
-        
-        board.drawGrid(canvas, tile_size)
-        
-
-        player1.draw(canvas, tile_size)
-        player2.draw(canvas, tile_size)
-
-        # update the board
-        pygame.display.flip()
-        time.sleep(0.5)
-
-
+        i += 1
     return player1, player2, winner
+
+def refresh(board: Board, player1: Character, player2:Character):
+    if gui_flag:
+        board.drawGrid(canvas, TILE_SIZE)
+        player1.draw(canvas, TILE_SIZE)
+        player2.draw(canvas, TILE_SIZE)
+        pygame.display.flip()
+        time.sleep(1)
 
 
 # def main():
@@ -108,8 +105,27 @@ def run_game(player1: Character, player2: Character):
         # set player queue to be the new 8 from run_game
 
 if __name__ == "__main__":
-    player1 = Character(RL(), 0, 0, Direction.DOWN, 5, 5, 1, 8, 8)
-    player2 = Character(RL(), NUM_TILES - 1, NUM_TILES - 1, Direction.UP, 5, 5, 1, 8, 8)
-    # player2 = Character(GA(), NUM_TILES - 1, NUM_TILES - 1, Direction.UP, 100, 100, 2, 100, 100)
+    # if reset argument is passed, delete all .pkl files
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "reset":
+            dir = os.listdir(os.getcwd())
+            for item in dir:
+                if item.endswith(".pkl"):
+                    os.remove(item)
+    player1, player2 = None, None
 
-    run_game(player1, player2)
+    RL_agent = RL(optimal=OPTIMAL, decay=0.9999995)
+    NUM_EPISODES = 1_000_000
+    for ep in tqdm(range(NUM_EPISODES), unit="episode"):
+        if ep % 2 == 0:
+            player1 = Character(RL_agent, 0, 0, Direction.DOWN, 5, 5, 1, 8, 8)
+            player2 = Character(RL_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP, 5, 5, 1, 8, 8)
+        else:
+            player1 = Character(RL_agent, 0, NUM_TILES - 1, Direction.RIGHT, 5, 5, 1, 8, 8)
+            player2 = Character(RL_agent, NUM_TILES - 1, 0, Direction.LEFT, 5, 5, 1, 8, 8)
+        run_game(player1, player2)
+        if ep % 10_000 == 0 and not OPTIMAL:
+            RL_agent.write_to_file()
+        RL_agent.decay_epsilon()
+
+    if not OPTIMAL: RL_agent.write_to_file()
