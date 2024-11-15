@@ -9,18 +9,23 @@ from tqdm import tqdm
 import time
 import sys
 import os
+import numpy as np
 
 NUM_TILES = 5
 TILE_SIZE = 50
-OPTIMAL = True # if you want to use the optimal policy
-gui_flag = True
+DECAY = 0.9999995
+NUM_EPISODES = 1_000_000
+SAVE_EVERY = 10_000
+OPTIMAL = False # if you want to use the optimal policy
+gui_flag = False
+
 if gui_flag:
     global canvas
     canvas: pygame.Surface = pygame.display.set_mode((NUM_TILES * TILE_SIZE, NUM_TILES * TILE_SIZE))
 
 # pygame main method
 def run_game(player1: Character, player2: Character):
-    board: Board = Board(NUM_TILES, (player1.row, player1.col), (player2.row, player2.col))
+    board: Board = Board(NUM_TILES, (player1.state.row, player1.state.col), (player2.state.row, player2.state.col))
     winner: Character = None
 
     if gui_flag:
@@ -31,22 +36,22 @@ def run_game(player1: Character, player2: Character):
     while i < 100: 
         board = player1.next_action(board)
         refresh(board, player1, player2)
-        if board.tied:
-            winner = None
-            break
         if board.done:
             winner = player1
+            player1.terminate(board, True)
+            player2.terminate(board, False)
             break
         
         board = player2.next_action(board)
         refresh(board, player1, player2)
-        if board.tied:
-            winner = None
-            break
         if board.done:
             winner = player2
+            player1.terminate(board, False)
+            player2.terminate(board, True)
             break
+
         i += 1
+
     return player1, player2, winner
 
 def refresh(board: Board, player1: Character, player2:Character):
@@ -114,17 +119,16 @@ if __name__ == "__main__":
                     os.remove(item)
     player1, player2 = None, None
 
-    RL_agent = RL(optimal=OPTIMAL, decay=0.9999995)
-    NUM_EPISODES = 1_000_000
+    RL_agent = RL(optimal=OPTIMAL, decay=DECAY)
     for ep in tqdm(range(NUM_EPISODES), unit="episode"):
         if ep % 2 == 0:
-            player1 = Character(RL_agent, 0, 0, Direction.DOWN, 5, 5, 1, 8, 8)
-            player2 = Character(RL_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP, 5, 5, 1, 8, 8)
+            player1 = Character(RL_agent, 0, 0, Direction.DOWN)
+            player2 = Character(RL_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
         else:
-            player1 = Character(RL_agent, 0, NUM_TILES - 1, Direction.RIGHT, 5, 5, 1, 8, 8)
-            player2 = Character(RL_agent, NUM_TILES - 1, 0, Direction.LEFT, 5, 5, 1, 8, 8)
+            player1 = Character(RL_agent, 0, NUM_TILES - 1, Direction.RIGHT)
+            player2 = Character(RL_agent, NUM_TILES - 1, 0, Direction.LEFT)
         run_game(player1, player2)
-        if ep % 10_000 == 0 and not OPTIMAL:
+        if ep % SAVE_EVERY == 0 and not OPTIMAL:
             RL_agent.write_to_file()
         RL_agent.decay_epsilon()
 

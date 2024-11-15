@@ -17,4 +17,7 @@ Action.move_delta = {
     Action.MOVE_RIGHT: (0, 1)
 }
 
-Action.rotate_actions = set([Action.ROTATE_GUN_LEFT, Action.ROTATE_GUN_RIGHT])
+Action.rotate_actions = {
+    Action.ROTATE_GUN_LEFT: -1,
+    Action.ROTATE_GUN_RIGHT: 1
+}

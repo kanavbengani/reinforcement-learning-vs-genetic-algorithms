@@ -3,6 +3,7 @@ from Direction import Direction
 import numpy as np
 from typing import List, Tuple
 from pygame import Surface
+import time
 
 class Board:
     def __init__(
@@ -21,8 +22,6 @@ class Board:
         self.tiles: List[List[Tile]] = [[Tile.EMPTY for _ in range(num_tiles)] for _ in range(num_tiles)]
         self.tiles[player1_index[0]][player1_index[1]] = Tile.CHARACTER
         self.tiles[player2_index[0]][player2_index[1]] = Tile.CHARACTER
-        self.tiles[num_tiles // 2][0] = Tile.STATION
-        self.tiles[num_tiles // 2][num_tiles - 1] = Tile.STATION
 
         for row in range(1, len(self.tiles) - 1, 2):
             for col in range(1, len(self.tiles[0]) - 1, 2):

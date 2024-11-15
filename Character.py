@@ -2,49 +2,108 @@ from typing import List
 from Direction import Direction
 from Board import Board
 from ActionFunction import ActionFunction
+from Action import Action
+from State import State
 
 import pygame
 
 class Character:
     """
     Represents an agent in the game. Fields:
-        - self.speed: Int: The number of tiles this agent can move in one turn
-        - self.fuel: Int: The amount of fuel this agent currently has.
-        - self.ammo: Int: The ammo that this agent currently has
-        - self.x: Int: X coordinate of this agent
-        - self.y: Int: Y coordinate of this agent
+        - self.row: int: row coordinate of this agent
+        - self.col: int: col coordinate of this agent
         - self.direction: Direction: The direction that this agent is facing. 
         - self.action_fn: ActionFunction: The function through which this agent selects its next action
     """
-    def __init__(self, action_fn: ActionFunction, row: int, col: int, direction: Direction, max_ammo: int, ammo: int, speed: int, max_fuel: int, fuel: int):
-        self.action_fn = action_fn
-        self.row = row
-        self.col = col
-        self.direction = direction
-        self.max_ammo = max_ammo
-        self.ammo = ammo
-        self.speed = speed
-        self.max_fuel = max_fuel
-        self.fuel = fuel
+    def __init__(
+        self, 
+        action_fn: ActionFunction, 
+        row: int, 
+        col: int, 
+        direction: Direction):
+        """
+        Initializes the character with the given parameters.
+        
+        Parameters:
+        action_fn (ActionFunction): The function through which this agent selects its next action
+        row (int): The row position of the agent
+        col (int): The column position of the agent
+        direction (Direction): The direction that this agent is facing
+        """
+        self.action_fn: ActionFunction = action_fn
+        self.state: State = State(
+            row=row, 
+            col=col, 
+            direction=direction, 
+            opp_row=-1, 
+            opp_col=-1)
+        self.action: Action = None
+        self.state_halfprime: State = self.state
 
-    
-    def next_action(self, board: Board) -> Board:
-        self.row, self.col, self.direction, self.max_ammo, self.ammo, self.speed, self.max_fuel, self.fuel, board = self.action_fn.apply(
-            row=self.row, 
-            col=self.col, 
-            direction=self.direction, 
-            max_ammo=self.max_ammo, 
-            ammo=self.ammo, 
-            speed=self.speed, 
-            max_fuel=self.max_fuel, 
-            fuel=self.fuel, 
+    def next_action(
+        self, 
+        board: Board) -> Board:
+        """
+        Selects the next action for this agent.
+
+        Parameters:
+        board (Board): The game board.
+
+        Returns:
+        Board: The updated game board.
+        """
+        self.state, self.action, self.state_halfprime, board = self.action_fn.apply(
+            state=self.state,
+            action=self.action,
+            state_prime=self.computeState(board),
             board=board)
         return board
 
+    
+    def terminate(
+        self, 
+        board: Board,
+        won: bool) -> None:
+        """
+        Notifies the agent if it has won or lost.
+
+        Parameters:
+        board (Board): The game board
+        won (bool): Flag to indicate if the agent has won.
+        """
+        self.action_fn.terminate(
+            state=self.state,
+            action=self.action,
+            state_prime=self.computeState(board),
+            won=won)
+
+
+    def computeState(
+        self, 
+        board: Board) -> State:
+        """
+        Computes the state of the given board from this Character's perspective.
+        
+        Parameters:
+        board (Board): The game board.
+        
+        Returns:
+        State: state of the given board from this Character's perspective.
+        """
+        character_positions = board.getCharacters()
+
+        opp_row, opp_col = None, None
+        if character_positions[0] == (self.state_halfprime.row, self.state_halfprime.col):
+            opp_row, opp_col = character_positions[1]
+        else:
+            opp_row, opp_col = character_positions[0]
+        return self.state_halfprime.getStateWithDifferent(opp_row=opp_row, opp_col=opp_col)
+
+
     def draw(self, canvas, tile_size):
-        image = pygame.image.load("tank.png").convert_alpha()
-        image = pygame.transform.scale(image, (tile_size * .9, tile_size * .9))
-        image = pygame.transform.rotate(image, self.direction.value * -90)
+        tank = pygame.image.load("tank.png").convert_alpha()
+        tank = pygame.transform.scale(tank, (tile_size * .9, tile_size * .9))
+        tank = pygame.transform.rotate(tank, self.state_halfprime.direction.value * -90)
             
-        canvas.blit(image, (tile_size * 0.05 + self.col * tile_size, tile_size * 0.05 + self.row * tile_size))
+        canvas.blit(tank, (tile_size * 0.05 + self.state_halfprime.col * tile_size, tile_size * 0.05 + self.state_halfprime.row * tile_size))
         

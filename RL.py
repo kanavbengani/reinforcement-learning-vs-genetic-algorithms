@@ -2,6 +2,7 @@ from ActionFunction import ActionFunction, InvalidMove, NoAmmo
 from Action import Action
 from Direction import Direction
 from Board import Board
+from State import State
 import numpy as np
 import pickle
 import os
@@ -40,189 +41,170 @@ class RL(ActionFunction):
         self.epsilon *= self.decay
 
 
-    def hash_state(
-        self, 
-        row: int, 
-        col: int, 
-        direction: Direction, 
-        ammo: int, 
-        turns_left: int, 
-        fuel: int, 
-        opp_row: int, 
-        opp_col: int) -> str:
-        """
-        Hash the state into a string.
-
-        Parameters:
-        row (int): Row position.
-        col (int): Column position.
-        direction (Direction): Direction of the agent.
-        ammo (int): Amount of ammo.
-        turns_left (int): Turns left.
-        fuel (int): Amount of fuel.
-        opp_row (int): Opponent's row position.
-        opp_col (int): Opponent's column position.
-
-        Returns:
-        str: Hashed state.
-        """
-        return (
-            str(row).zfill(2) + 
-            str(col).zfill(2) + 
-            str(direction.value).zfill(2) + 
-            str(ammo).zfill(2) + 
-            str(turns_left).zfill(2) + 
-            str(fuel).zfill(2) + 
-            str(opp_row).zfill(2) + 
-            str(opp_col).zfill(2))
-
-
     def apply(
         self, 
-        row: int,
-        col: int, 
-        direction: Direction, 
-        max_ammo: int,
-        ammo: int, 
-        speed: int, 
-        max_fuel: int, 
-        fuel: int, 
-        board: Board) -> Tuple[int, int, Direction, int, int, int, int, int, Board]:
+        state: State,
+        action: Action,
+        state_prime: State,
+        board: Board) -> Tuple[State, Action, Board]:
         """
         Apply the RL algorithm to choose and execute an action.
 
         Parameters:
-        row (int): Row position.
-        col (int): Column position.
-        direction (Direction): Direction of the agent.
-        max_ammo (int): Maximum ammo.
-        ammo (int): Current ammo.
-        speed (int): Speed of the agent.
-        max_fuel (int): Maximum fuel.
-        fuel (int): Current fuel.
+        state (State): state.
+        action (Action): action.
+        state_prime (State): state prime.
         board (Board): The game board.
 
         Returns:
-        tuple: Updated state after applying the action.
+        tuple: Updated state-action pair after applying the action.
         """
-        if (fuel > 0):
-            for turn in range(1, speed + 1):
-                # Getting opponent's position
-                character_positions: List[Tuple[int, int]] = board.getCharacters()
-                opp_row, opp_col = None, None
-                if character_positions[0] == (row, col):
-                    opp_row = character_positions[1][0]
-                    opp_col = character_positions[1][1]
-                else: 
-                    opp_row = character_positions[0][0]
-                    opp_col = character_positions[0][1]
-                
-                while True:
-                    # getting current state's hash
-                    old_state = self.hash_state(row, col, direction, ammo, speed - turn + 1, fuel, opp_row, opp_col)
-                    if old_state not in self.q_table:
-                        self.q_table[old_state] = np.zeros(len(Action))
-                        self.num_updates[old_state] = np.zeros(len(Action))
+        # if non-start state, then update q_table for state-action pair using state_prime
+        if not state.isStart():
+            state_str = str(state)
+            state_prime_str = str(state_prime)
+            if state_str not in self.q_table:
+                self.q_table[state_str] = np.zeros(len(Action))
+                self.num_updates[state_str] = np.zeros(len(Action))
+            
+            if state_prime_str not in self.q_table:
+                self.q_table[state_prime_str] = np.zeros(len(Action))
+                self.num_updates[state_prime_str] = np.zeros(len(Action))
+
+            # calculating eta using the number of updates associated with given state-action pair
+            eta = 1/(1 + self.num_updates[state_str][action.value])
+
+            # updating num_updates table for given state-action pair
+            self.num_updates[state_str][action.value] += 1
+            
+            # getting reward for the given state-action pair    
+            reward = self.computeReward(state, action, state_prime, board)
+
+            # updating q_table with reward
+            self.q_table[state_str][action.value] = (
+                (1 - eta) * self.q_table[state_str][action.value]
+                + (eta) * (reward + (self.gamma * np.max(self.q_table[state_prime_str]))))
+
+        new_state, new_action, new_board = self.choose_action(state_prime, board)
+
+        return state_prime, new_action, new_state, new_board
+
+
+    def choose_action(
+        self,
+        state: State,
+        board: Board) -> Tuple[State, Action, Board]:
+        """
+        Choose an action to execute.
+
+        Parameters:
+        state (State): state.
+        board (Board): The game board.
+
+        Returns:
+        tuple: Updated state-action pair after applying the action.
+        """
+        while True:
+            try:
+                state_str = str(state)
+                if state_str not in self.q_table:
+                    self.q_table[state_str] = np.zeros(len(Action))
+                    self.num_updates[state_str] = np.zeros(len(Action))
+
+                new_action = None
+                # picking action to play
+                if not self.optimal and (np.random.random() <= self.epsilon):
+                    # picking random action that is not invalid
+                    new_action = Action(np.random.choice(np.where(self.q_table[state_str] != -1.e+06)[0]))
+                else:
+                    # picking best action
+                    new_action = Action(np.argmax(self.q_table[state_str]))
+                new_state, new_board = self.try_action(state, new_action, board)
+                return new_state, new_action, new_board
+            except InvalidMove:
+                if state_str not in self.q_table:
+                    self.q_table[state_str] = np.zeros(len(Action))
+                    self.num_updates[state_str] = np.zeros(len(Action))
                     
-                    # picking action to play
-                    if not self.optimal and (np.random.random() <= self.epsilon):
-                        # picking random action that is not invalid
-                        action = Action(np.random.choice(np.where(self.q_table[old_state] != -1000000.)[0]))
-                    else:
-                        # picking best action
-                        action = Action(np.argmax(self.q_table[old_state]))
+                self.q_table[state_str][new_action.value] = -1e+06
+                continue
 
-                    try:
-                        new_row, new_col, new_direction, new_max_ammo, new_ammo, new_speed, new_max_fuel, new_fuel, new_board = self.try_action(
-                            action=action, 
-                            row=row, 
-                            col=col, 
-                            direction=direction, 
-                            max_ammo=max_ammo, 
-                            ammo=ammo, 
-                            speed=speed, 
-                            max_fuel=max_fuel, 
-                            fuel=fuel, 
-                            board=board)
-                    except (InvalidMove, NoAmmo)  as e:
-                        self.q_table[old_state][action.value] = -1000000.
-                        self.num_updates[old_state][action.value] += 1
-                        continue
+        
+    def computeReward(
+        self,
+        state: State,
+        action: Action,
+        state_prime: State,
+        board: Board) -> float:
+        """
+        Compute the reward for the given state-action pair.
 
-                    # updating eta using the number of updates associated with given state-action pair
-                    eta = 1/(1 + self.num_updates[old_state][action.value])
-                    
-                    # getting new state's hash
-                    new_state = self.hash_state(new_row, new_col, new_direction, new_ammo, speed - turn, new_fuel, opp_row, opp_col)
-                    if new_state not in self.q_table:
-                        self.q_table[new_state] = np.zeros(len(Action))
-                        self.num_updates[new_state] = np.zeros(len(Action))
+        Parameters:
+        state (State): state.
+        state_prime (State): state prime.
+        board (Board): The game board.
 
-                    # updating num_updates table for given state-action pair
-                    self.num_updates[old_state][action.value] += 1
+        Returns:
+        float: Reward for the given state-action pair.
+        """
+        # default reward
+        reward = -10
 
-                    reward = 0
 
-                    # if character has run out of fuel, notifying the board
-                    if new_fuel == 0:
-                        reward += -500000.
-                        board.runOutOfFuel()
+        # if agent missed a shot
+        if action == Action.SHOOT:
+            reward += -4990
+        # if closer to the opponent
+        elif (
+            board.getManhattanDistance((state.row, state.col), (state.opp_row, state.opp_col)) 
+            > board.getManhattanDistance((state_prime.row, state_prime.col), (state_prime.opp_row, state_prime.opp_col))):
+            reward += 1010
 
-                    # Rewards
-                    # Game over
-                    if board.done:
-                        self.q_table[old_state][action.value] = (1 - eta) * self.q_table[old_state][action.value] + eta * (1000000. + (self.gamma * np.max(self.q_table[new_state])))
-                        return new_row, new_col, new_direction, new_max_ammo, new_ammo, new_speed, new_max_fuel, new_fuel, new_board
-                    
-                    if board.tied:
-                        self.q_table[old_state][action.value] = (1 - eta) * self.q_table[old_state][action.value] + eta * (reward + (self.gamma * np.max(self.q_table[new_state])))
-                        return new_row, new_col, new_direction, new_max_ammo, new_ammo, new_speed, new_max_fuel, new_fuel, new_board
-                   
-                    flag = False
-                        
-                    # Shot does not hit opponent
-                    if action == Action.SHOOT:
-                        flag = True
-                        reward += -500
-                        
-                    # Closer to opponent
-                    pos = (row, col)
-                    new_pos = (new_row, new_col)
-                    opp_pos = (opp_row, opp_col)
-                    if board.getManhattanDistance(new_pos, opp_pos) < board.getManhattanDistance(pos, opp_pos) and ammo > 0:
-                        flag = True
-                        reward += 100
-                    
-                    # Further from opponent when we have no ammo
-                    if board.getManhattanDistance(new_pos, opp_pos) > board.getManhattanDistance(pos, opp_pos) and ammo == 0:
-                        flag = True
-                        reward += 100
+        # if facing towards the opponent more
+        elif (
+            board.getFacing((state.row, state.col), state.direction, (state.opp_row, state.opp_col)) 
+            < board.getFacing((state_prime.row, state_prime.col), state_prime.direction, (state_prime.opp_row, state_prime.opp_col))):
+            reward += 1010
 
-                    # Facing opponent
-                    if board.getFacing(new_pos, new_direction, opp_pos) > board.getFacing(pos, direction, opp_pos):
-                        flag = True
-                        reward += 100
+        
 
-                    # None of the above were accomplished, so negative reward
-                    if not flag:
-                        reward += -10
+        return reward
 
-                    self.q_table[old_state][action.value] = (1 - eta) * self.q_table[old_state][action.value] + eta * (reward + (self.gamma * np.max(self.q_table[new_state])))
-                    break
+    def terminate(
+        self,
+        state: State,
+        action: Action,
+        state_prime: State,
+        won: bool) -> None:
+        """
+        Notify the agent that the opponent has won.
 
-                if board.done: # prevent moves from happening after game ends
-                    break
+        Parameters:
+        state (State): state.
+        action (Action): action.
+        state_prime (State): state prime.
+        won (bool): Flag to indicate if the agent has won.
+        """
+        state_str = str(state)
+        state_prime_str = str(state_prime)
+        if state_str not in self.q_table:
+            self.q_table[state_str] = np.zeros(len(Action))
+            self.num_updates[state_str] = np.zeros(len(Action))
+        
+        if state_prime_str not in self.q_table:
+            self.q_table[state_prime_str] = np.zeros(len(Action))
+            self.num_updates[state_prime_str] = np.zeros(len(Action))
 
-                row = new_row
-                col = new_col
-                direction = new_direction
-                max_ammo = new_max_ammo
-                ammo = new_ammo
-                speed = new_speed
-                max_fuel = new_max_fuel
-                fuel = new_fuel
-                board = new_board
-        return row, col, direction, max_ammo, ammo, speed, max_fuel, fuel, board
+        # calculating eta using the number of updates associated with given state-action pair
+        eta = 1/(1 + self.num_updates[state_str][action.value])
+
+        # updating num_updates table for given state-action pair
+        self.num_updates[state_str][action.value] += 1
+
+        # updating q_table with reward
+        self.q_table[state_str][action.value] = (
+                (1 - eta) * self.q_table[state_str][action.value]
+                + (eta) * ((1.e+06 if won else -1.e+06) + (self.gamma * np.max(self.q_table[state_prime_str]))))
 
 
     def write_to_file(
