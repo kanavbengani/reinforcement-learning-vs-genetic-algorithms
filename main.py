@@ -10,14 +10,15 @@ import time
 import sys
 import os
 import numpy as np
+import shutil
 
 NUM_TILES = 5
 TILE_SIZE = 50
-DECAY = 0.9999995
-NUM_EPISODES = 1_000_000
+DECAY = 0.99995
+NUM_EPISODES = 100_000
 SAVE_EVERY = 10_000
-OPTIMAL = False # if you want to use the optimal policy
-gui_flag = False
+OPTIMAL = True # if you want to use the optimal policy
+gui_flag = True
 
 if gui_flag:
     global canvas
@@ -35,22 +36,23 @@ def run_game(player1: Character, player2: Character):
     i = 0
     while i < 100: 
         board = player1.next_action(board)
-        refresh(board, player1, player2)
         if board.done:
             winner = player1
             player1.terminate(board, True)
             player2.terminate(board, False)
             break
+        refresh(board, player1, player2)
         
         board = player2.next_action(board)
-        refresh(board, player1, player2)
         if board.done:
             winner = player2
             player1.terminate(board, False)
             player2.terminate(board, True)
             break
+        refresh(board, player1, player2)
 
         i += 1
+    refresh(board, player1, player2)
 
     return player1, player2, winner
 
@@ -62,74 +64,103 @@ def refresh(board: Board, player1: Character, player2:Character):
         pygame.display.flip()
         time.sleep(1)
 
+def rlvrl():
+    player1, player2 = None, None
 
-# def main():
-#     player1 = Character(RL(), 0, 0, Direction.UP, 100, 100, 1, 100, 100)
-#     player2 = Character(GA(), NUM_TILES - 1, NUM_TILES - 1, Direction.DOWN, 100, 100, 2, 100, 100)
-#     playerQueue = [player2]
-#     queueSize = 8
+    RL_agent = RL(
+        optimal=True, 
+        decay=DECAY,
+        q_table_file="pkl_files/q_table.pkl",
+        num_updates_file="pkl_files/num_updates.pkl",
+        epsilon_file="pkl_files/epsilon.pkl")
+    
+    RL_agent_training = RL(
+        optimal=OPTIMAL, 
+        decay=DECAY, 
+        q_table_file="pkl_files/q_table_better.pkl", 
+        num_updates_file="pkl_files/num_updates_better.pkl", 
+        epsilon_file="pkl_files/epsilon_better.pkl")
+    
+    for ep in tqdm(range(NUM_EPISODES), unit="episode"):
+        if ep % 4 == 0:
+            player1 = Character(RL_agent, 0, 0, Direction.DOWN)
+            player2 = Character(RL_agent_training, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
+        elif ep % 4 == 1:
+            player1 = Character(RL_agent, 0, NUM_TILES - 1, Direction.LEFT)
+            player2 = Character(RL_agent_training, NUM_TILES - 1, 0, Direction.RIGHT)
+        elif ep % 4 == 2:
+            player1 = Character(RL_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
+            player2 = Character(RL_agent_training, 0, 0, Direction.DOWN)
+        else: 
+            player1 = Character(RL_agent, NUM_TILES - 1, 0, Direction.RIGHT)
+            player2 = Character(RL_agent_training, 0, NUM_TILES - 1, Direction.LEFT)
 
-#     # run all games
-#     for i in range(10000):
-#         newPlayerQueue = []
+        run_game(player1, player2)
+        if ep % SAVE_EVERY == 0 and not OPTIMAL:
+            # RL_agent.write_to_file()
+            RL_agent_training.write_to_file()
+        # RL_agent.decay_epsilon()
+        RL_agent_training.decay_epsilon()
 
-#         # RL player plays against each of GA players in the queue
-#         for player2 in playerQueue:
-#             player1Queue, player2Queue = run_game(player1, player2)
-#             player1 = player1Queue[0]
-#             newPlayerQueue += player2Queue
-        
-        
-#         # GA players play against each other
-#         playersToWins = {player: 0 for player in newPlayerQueue}
-#         for i in range(len(newPlayerQueue)):
-#             for j in range(i, len(newPlayerQueue)):
-#                 _, _, winner = run_game(newPlayerQueue[i], newPlayerQueue[j])
-#                 playersToWins[winner] += 1
-        
-#         # sort the number of wins and get top 8
-#         topN = sorted(playersToWins.items(), key=lambda item: item[1], reverse=True)[:queueSize]
-#         playerQueue = [i[0] for i in topN]
+    if not OPTIMAL:
+        RL_agent.write_to_file()
+        RL_agent_training.write_to_file()
 
-        # GA TYPE 1
-        # run_game gives us 8 new/old GA agents through combining and mutating
-        # ends us with 64 newPlayerQueue
-        # run 64(63)/2 times to find the winners
-        # Pick the best 8 winners
+def rlvga():
+    player1, player2 = None, None
 
-        # GA TYPE 2
-        # initially have 8 GA agents with different properties
-        # Go through each GA agent fighting against the RL agent (for loop for the 8 players, for loop ends)
-        #   run_game doesn't return a set of player2s, instead returns 1 GA agent and score associated
-        # Pick the 4 best GA agents
-        # Combine and mutate using those 4 best GA and run it again with your set of 8 GA agents
-        # Go back to step 2 with this new queue of GA agents
-        # Can have the RL agent learn from each of the fights (so learns 8 games, then learns from 8 games of new GA set)
-            
-        
-        # set player queue to be the new 8 from run_game
+    RL_agent = RL(
+        optimal=True, 
+        decay=DECAY,
+        q_table_file="pkl_files/q_table.pkl",
+        num_updates_file="pkl_files/num_updates.pkl",
+        epsilon_file="pkl_files/epsilon.pkl")
+    
+    GA_agent = GA(
+        optimal=OPTIMAL, 
+        min_population = 4, 
+        max_population = 8, 
+        mutation_rate = 0.05, 
+        policies_file = 'pkl_files/policies.pkl')
+    
+    for ep in tqdm(range(NUM_EPISODES), unit="episode"):
+        if ep % 4 == 0:
+            player1 = Character(RL_agent, 0, 0, Direction.DOWN)
+            player2 = Character(GA_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
+        elif ep % 4 == 1:
+            player1 = Character(RL_agent, 0, NUM_TILES - 1, Direction.LEFT)
+            player2 = Character(GA_agent, NUM_TILES - 1, 0, Direction.RIGHT)
+        elif ep % 4 == 2:
+            player1 = Character(RL_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
+            player2 = Character(GA_agent, 0, 0, Direction.DOWN)
+        else: 
+            player1 = Character(RL_agent, NUM_TILES - 1, 0, Direction.RIGHT)
+            player2 = Character(GA_agent, 0, NUM_TILES - 1, Direction.LEFT)
+
+        run_game(player1, player2)
+        if ep % SAVE_EVERY == 0 and not OPTIMAL:
+            RL_agent.write_to_file()
+            GA_agent.write_to_file()
+        RL_agent.decay_epsilon()
+
+    if not OPTIMAL:
+        RL_agent.write_to_file()
+        GA_agent.write_to_file()
+
+
 
 if __name__ == "__main__":
     # if reset argument is passed, delete all .pkl files
     if len(sys.argv) > 1:
-        if sys.argv[1] == "reset":
-            dir = os.listdir(os.getcwd())
-            for item in dir:
-                if item.endswith(".pkl"):
-                    os.remove(item)
-    player1, player2 = None, None
-
-    RL_agent = RL(optimal=OPTIMAL, decay=DECAY)
-    for ep in tqdm(range(NUM_EPISODES), unit="episode"):
-        if ep % 2 == 0:
-            player1 = Character(RL_agent, 0, 0, Direction.DOWN)
-            player2 = Character(RL_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
-        else:
-            player1 = Character(RL_agent, 0, NUM_TILES - 1, Direction.RIGHT)
-            player2 = Character(RL_agent, NUM_TILES - 1, 0, Direction.LEFT)
-        run_game(player1, player2)
-        if ep % SAVE_EVERY == 0 and not OPTIMAL:
-            RL_agent.write_to_file()
-        RL_agent.decay_epsilon()
-
-    if not OPTIMAL: RL_agent.write_to_file()
+        if sys.argv[1] == "rlvrl":
+            rlvrl()
+        elif sys.argv[1] == "rlvga": 
+            rlvga()
+        else: 
+            raise Exception("Invalid argument. Please use 'rlvrl' or 'rlvga'.")
+        
+        if len(sys.argv) > 2:
+            if sys.argv[2] == "reset":
+                shutil.rmtree("pkl_files/") if os.path.exists("pkl_files") else None
+                os.mkdir("pkl_files")
+    

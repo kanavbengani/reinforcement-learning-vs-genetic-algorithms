@@ -39,6 +39,7 @@ class Character:
             opp_col=-1)
         self.action: Action = None
         self.state_halfprime: State = self.state
+        self.alive = True
 
     def next_action(
         self, 
@@ -71,6 +72,7 @@ class Character:
         board (Board): The game board
         won (bool): Flag to indicate if the agent has won.
         """
+        if won == False: self.alive = False
         self.action_fn.terminate(
             state=self.state,
             action=self.action,
@@ -101,9 +103,14 @@ class Character:
 
 
     def draw(self, canvas, tile_size):
-        tank = pygame.image.load("tank.png").convert_alpha()
+        tank = pygame.image.load("images/tank.png").convert_alpha()
         tank = pygame.transform.scale(tank, (tile_size * .9, tile_size * .9))
         tank = pygame.transform.rotate(tank, self.state_halfprime.direction.value * -90)
             
         canvas.blit(tank, (tile_size * 0.05 + self.state_halfprime.col * tile_size, tile_size * 0.05 + self.state_halfprime.row * tile_size))
+
+        if self.alive == False:
+            cross = pygame.image.load("images/cross.png").convert_alpha()
+            cross = pygame.transform.scale(cross, (tile_size * .9, tile_size * .9))
+            canvas.blit(cross, (tile_size * 0.05 + self.state_halfprime.col * tile_size, tile_size * 0.05 + self.state_halfprime.row * tile_size))
         

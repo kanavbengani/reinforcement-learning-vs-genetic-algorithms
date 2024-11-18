@@ -8,15 +8,14 @@ import pickle
 import os
 from typing import Tuple, List
 
-Q_TABLE_FILE = 'q_table.pkl'
-NUM_UPDATES_FILE = 'num_updates.pkl'
-EPSILON_FILE = 'epsilon.pkl'
-
 class RL(ActionFunction):
     def __init__(
         self, 
-        decay: float=0.99999, 
-        optimal: bool=False):
+        decay: float = 0.99999, 
+        optimal: bool = False,
+        q_table_file: str = 'q_table.pkl',
+        num_updates_file: str = 'num_updates.pkl',
+        epsilon_file: str = 'epsilon.pkl'):
         """
         Initialize the RL class.
 
@@ -30,6 +29,9 @@ class RL(ActionFunction):
         self.decay: float = decay
         self.gamma: float = 0.9
         self.optimal: bool = optimal
+        self.q_table_file: str = q_table_file
+        self.num_updates_file: str = num_updates_file
+        self.epsilon_file: str = epsilon_file
         self.load_data()
 
 
@@ -115,7 +117,7 @@ class RL(ActionFunction):
                 # picking action to play
                 if not self.optimal and (np.random.random() <= self.epsilon):
                     # picking random action that is not invalid
-                    new_action = Action(np.random.choice(np.where(self.q_table[state_str] != -1.e+06)[0]))
+                    new_action = Action(np.random.choice(np.where(self.q_table[state_str] != -1.e+10)[0]))
                 else:
                     # picking best action
                     new_action = Action(np.argmax(self.q_table[state_str]))
@@ -126,7 +128,7 @@ class RL(ActionFunction):
                     self.q_table[state_str] = np.zeros(len(Action))
                     self.num_updates[state_str] = np.zeros(len(Action))
                     
-                self.q_table[state_str][new_action.value] = -1e+06
+                self.q_table[state_str][new_action.value] = -1.e+10
                 continue
 
         
@@ -153,21 +155,19 @@ class RL(ActionFunction):
 
         # if agent missed a shot
         if action == Action.SHOOT:
-            reward += -4990
+            reward += -490
         # if closer to the opponent
         elif (
             board.getManhattanDistance((state.row, state.col), (state.opp_row, state.opp_col)) 
             > board.getManhattanDistance((state_prime.row, state_prime.col), (state_prime.opp_row, state_prime.opp_col))):
-            reward += 1010
+            reward += 110
 
         # if facing towards the opponent more
         elif (
             board.getFacing((state.row, state.col), state.direction, (state.opp_row, state.opp_col)) 
             < board.getFacing((state_prime.row, state_prime.col), state_prime.direction, (state_prime.opp_row, state_prime.opp_col))):
-            reward += 1010
-
-        
-
+            reward += 110
+            
         return reward
 
     def terminate(
@@ -212,11 +212,11 @@ class RL(ActionFunction):
         """
         Write the Q-table, number of updates, and epsilon value to files.
         """
-        with open(Q_TABLE_FILE, 'wb') as f:
+        with open(self.q_table_file, 'wb') as f:
             pickle.dump(self.q_table, f)
-        with open(NUM_UPDATES_FILE, 'wb') as f:
+        with open(self.num_updates_file, 'wb') as f:
             pickle.dump(self.num_updates, f)
-        with open(EPSILON_FILE, 'wb') as f:
+        with open(self.epsilon_file, 'wb') as f:
             pickle.dump(self.epsilon, f)
 
 
@@ -225,11 +225,11 @@ class RL(ActionFunction):
         """
         Load the Q-table, number of updates, and epsilon value from files.
         """
-        if os.path.exists(Q_TABLE_FILE) and os.path.exists(NUM_UPDATES_FILE) and os.path.exists(EPSILON_FILE):
-            with open(Q_TABLE_FILE, 'rb') as f:
+        if os.path.exists(self.q_table_file) and os.path.exists(self.num_updates_file) and os.path.exists(self.epsilon_file):
+            with open(self.q_table_file, 'rb') as f:
                 self.q_table = pickle.load(f)
-            with open(NUM_UPDATES_FILE, 'rb') as f:
+            with open(self.num_updates_file, 'rb') as f:
                 self.num_updates = pickle.load(f)
-            with open(EPSILON_FILE, 'rb') as f:
+            with open(self.epsilon_file, 'rb') as f:
                 self.epsilon = pickle.load(f)
                 self.epsilon *= self.decay
