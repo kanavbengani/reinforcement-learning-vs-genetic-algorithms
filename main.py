@@ -15,8 +15,8 @@ TILE_SIZE = 50
 DECAY = 0.999999
 NUM_EPISODES = 1_000_000
 SAVE_EVERY = 10_000
-OPTIMAL = False # if you want to use policy as-is (no-randomness)
-gui_flag = False
+OPTIMAL = True # if you want to use policy as-is (no-randomness)
+gui_flag = True
 
 if gui_flag:
     global canvas
@@ -109,35 +109,30 @@ def rlvga():
     RL_agent = RL(
         optimal=OPTIMAL,
         decay=DECAY,
-        q_table_file="pkl_files/q_table_rlvga.pkl",
-        num_updates_file="pkl_files/num_updates_rlvga.pkl",
-        epsilon_file="pkl_files/epsilon_rlvga.pkl")
+        q_table_file="pkl_files/q_table_1rlvrl.pkl",
+        num_updates_file="pkl_files/num_updates_1rlvrl.pkl",
+        epsilon_file="pkl_files/epsilon_1rlvrl.pkl")
     
     GA_agent = GA(
         optimal=OPTIMAL, 
         min_population = 4, 
         max_population = 8, 
         mutation_rate = 0.05, 
-        policies_file = 'pkl_files/policies_rlvga.pkl')
+        policies_file = 'pkl_files/policies_1gavga.pkl')
     
     for ep in tqdm(range(NUM_EPISODES), unit="episode"):
-        # print()
-        # if ep % 4 == 0:
-        #     print("ep 0")
-        player1 = Character(RL_agent, 0, 0, Direction.DOWN)
-        player2 = Character(GA_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
-        # elif ep % 4 == 1:
-        #     print("ep 1")
-        #     player1 = Character(RL_agent, 0, NUM_TILES - 1, Direction.LEFT)
-        #     player2 = Character(GA_agent, NUM_TILES - 1, 0, Direction.RIGHT)
-        # elif ep % 4 == 2:
-        #     print("ep 2")
-        #     player1 = Character(RL_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
-        #     player2 = Character(GA_agent, 0, 0, Direction.DOWN)
-        # else: 
-        #     print("ep 3")
-        #     player1 = Character(RL_agent, NUM_TILES - 1, 0, Direction.RIGHT)
-        #     player2 = Character(GA_agent, 0, NUM_TILES - 1, Direction.LEFT)
+        if ep % 4 == 0:
+            player1 = Character(RL_agent, 0, 0, Direction.DOWN)
+            player2 = Character(GA_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
+        elif ep % 4 == 1:
+            player1 = Character(RL_agent, 0, NUM_TILES - 1, Direction.LEFT)
+            player2 = Character(GA_agent, NUM_TILES - 1, 0, Direction.RIGHT)
+        elif ep % 4 == 2:
+            player1 = Character(RL_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
+            player2 = Character(GA_agent, 0, 0, Direction.DOWN)
+        else: 
+            player1 = Character(RL_agent, NUM_TILES - 1, 0, Direction.RIGHT)
+            player2 = Character(GA_agent, 0, NUM_TILES - 1, Direction.LEFT)
         run_game(player1, player2)
         if ep % SAVE_EVERY == 0 and not OPTIMAL:
             RL_agent.write_to_file()
