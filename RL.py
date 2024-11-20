@@ -62,16 +62,11 @@ class RL(ActionFunction):
         tuple: Updated state-action pair after applying the action.
         """
         # if non-start state, then update q_table for state-action pair using state_prime
-        if not state.isStart():
+        if (not self.optimal) and (not state.isStart()):
+            # initializing states in data structures
             state_str = str(state)
             state_prime_str = str(state_prime)
-            if state_str not in self.q_table:
-                self.q_table[state_str] = np.zeros(len(Action))
-                self.num_updates[state_str] = np.zeros(len(Action))
-            
-            if state_prime_str not in self.q_table:
-                self.q_table[state_prime_str] = np.zeros(len(Action))
-                self.num_updates[state_prime_str] = np.zeros(len(Action))
+            self.initialize_states([state_str, state_prime_str])
 
             # calculating eta using the number of updates associated with given state-action pair
             eta = 1/(1 + self.num_updates[state_str][action.value])
@@ -108,13 +103,12 @@ class RL(ActionFunction):
         """
         while True:
             try:
+                # initializing states in data structures
                 state_str = str(state)
-                if state_str not in self.q_table:
-                    self.q_table[state_str] = np.zeros(len(Action))
-                    self.num_updates[state_str] = np.zeros(len(Action))
+                self.initialize_states([state_str])
 
-                new_action = None
                 # picking action to play
+                new_action = None
                 if not self.optimal and (np.random.random() <= self.epsilon):
                     # picking random action that is not invalid
                     new_action = Action(np.random.choice(np.where(self.q_table[state_str] != -1.e+10)[0]))
@@ -124,10 +118,6 @@ class RL(ActionFunction):
                 new_state, new_board = self.try_action(state, new_action, board)
                 return new_state, new_action, new_board
             except InvalidMove:
-                if state_str not in self.q_table:
-                    self.q_table[state_str] = np.zeros(len(Action))
-                    self.num_updates[state_str] = np.zeros(len(Action))
-                    
                 self.q_table[state_str][new_action.value] = -1.e+10
                 continue
 
@@ -150,24 +140,24 @@ class RL(ActionFunction):
         float: Reward for the given state-action pair.
         """
         # default reward
-        reward = -10
-
+        reward = -100
 
         # if agent missed a shot
         if action == Action.SHOOT:
-            reward += -490
-        # if closer to the opponent
-        elif (
-            board.getManhattanDistance((state.row, state.col), (state.opp_row, state.opp_col)) 
-            > board.getManhattanDistance((state_prime.row, state_prime.col), (state_prime.opp_row, state_prime.opp_col))):
-            reward += 110
-
-        # if facing towards the opponent more
-        elif (
-            board.getFacing((state.row, state.col), state.direction, (state.opp_row, state.opp_col)) 
-            < board.getFacing((state_prime.row, state_prime.col), state_prime.direction, (state_prime.opp_row, state_prime.opp_col))):
-            reward += 110
+            reward += -400
             
+        # # if closer to the opponent
+        # elif (
+        #     board.getManhattanDistance((state.row, state.col), (state.opp_row, state.opp_col)) 
+        #     > board.getManhattanDistance((state_prime.row, state_prime.col), (state_prime.opp_row, state_prime.opp_col))):
+        #     reward += 200
+
+        # # if facing towards the opponent more
+        # elif (
+        #     board.getFacing((state.row, state.col), state.direction, (state.opp_row, state.opp_col)) 
+        #     < board.getFacing((state_prime.row, state_prime.col), state_prime.direction, (state_prime.opp_row, state_prime.opp_col))):
+        #     reward += 200
+
         return reward
 
     def terminate(
@@ -185,26 +175,37 @@ class RL(ActionFunction):
         state_prime (State): state prime.
         won (bool): Flag to indicate if the agent has won.
         """
-        state_str = str(state)
-        state_prime_str = str(state_prime)
-        if state_str not in self.q_table:
-            self.q_table[state_str] = np.zeros(len(Action))
-            self.num_updates[state_str] = np.zeros(len(Action))
-        
-        if state_prime_str not in self.q_table:
-            self.q_table[state_prime_str] = np.zeros(len(Action))
-            self.num_updates[state_prime_str] = np.zeros(len(Action))
+        if not self.optimal:
+            # initializing states in data structures
+            state_str = str(state)
+            state_prime_str = str(state_prime)
+            self.initialize_states([state_str, state_prime_str])
 
-        # calculating eta using the number of updates associated with given state-action pair
-        eta = 1/(1 + self.num_updates[state_str][action.value])
+            # calculating eta using the number of updates associated with given state-action pair
+            eta = 1/(1 + self.num_updates[state_str][action.value])
 
-        # updating num_updates table for given state-action pair
-        self.num_updates[state_str][action.value] += 1
+            # updating num_updates table for given state-action pair
+            self.num_updates[state_str][action.value] += 1
 
-        # updating q_table with reward
-        self.q_table[state_str][action.value] = (
-                (1 - eta) * self.q_table[state_str][action.value]
-                + (eta) * ((1.e+06 if won else -1.e+06) + (self.gamma * np.max(self.q_table[state_prime_str]))))
+            # updating q_table with reward
+            self.q_table[state_str][action.value] = (
+                    (1 - eta) * self.q_table[state_str][action.value]
+                    + (eta) * ((1.e+06 if won else -1.e+06) + (self.gamma * np.max(self.q_table[state_prime_str]))))
+
+
+    def initialize_states(self, states: List[State]) -> None:
+        """
+        Initialize the q and num_updates table with the given states.
+
+        Parameters:
+        states (List[State]): List of states to initialize the q and num_updates table.
+        """
+        for state in states:
+            state_str = str(state)
+            if state_str not in self.q_table:
+                self.q_table[state_str] = np.zeros(len(Action))
+            if state_str not in self.num_updates:
+                self.num_updates[state_str] = np.zeros(len(Action))
 
 
     def write_to_file(
@@ -225,11 +226,13 @@ class RL(ActionFunction):
         """
         Load the Q-table, number of updates, and epsilon value from files.
         """
-        if os.path.exists(self.q_table_file) and os.path.exists(self.num_updates_file) and os.path.exists(self.epsilon_file):
+        if os.path.exists(self.q_table_file):
             with open(self.q_table_file, 'rb') as f:
                 self.q_table = pickle.load(f)
+        if os.path.exists(self.num_updates_file):
             with open(self.num_updates_file, 'rb') as f:
                 self.num_updates = pickle.load(f)
+        if os.path.exists(self.epsilon_file):
             with open(self.epsilon_file, 'rb') as f:
                 self.epsilon = pickle.load(f)
                 self.epsilon *= self.decay
