@@ -191,6 +191,8 @@ class RL(ActionFunction):
             self.q_table[state_str][action.value] = (
                     (1 - eta) * self.q_table[state_str][action.value]
                     + (eta) * ((1.e+06 if won else -1.e+06) + (self.gamma * np.max(self.q_table[state_prime_str]))))
+            
+            self.decay_epsilon()
 
 
     def initialize_states(self, states: List[State]) -> None:

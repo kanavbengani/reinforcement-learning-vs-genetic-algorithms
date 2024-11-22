@@ -20,7 +20,8 @@ class Character:
         action_fn: ActionFunction, 
         row: int, 
         col: int, 
-        direction: Direction):
+        direction: Direction,
+        tank_file: str) -> None:
         """
         Initializes the character with the given parameters.
         
@@ -29,6 +30,7 @@ class Character:
         row (int): The row position of the agent
         col (int): The column position of the agent
         direction (Direction): The direction that this agent is facing
+        tank_file (str): The file path of the tank image
         """
         self.action_fn: ActionFunction = action_fn
         self.state: State = State(
@@ -40,6 +42,7 @@ class Character:
         self.action: Action = None
         self.state_halfprime: State = self.state
         self.alive = True
+        self.tank_file = tank_file
 
     def next_action(
         self, 
@@ -103,7 +106,7 @@ class Character:
 
 
     def draw(self, canvas, tile_size):
-        tank = pygame.image.load("images/tank.png").convert_alpha()
+        tank = pygame.image.load(f"images/{self.tank_file}").convert_alpha()
         tank = pygame.transform.scale(tank, (tile_size * .9, tile_size * .9))
         tank = pygame.transform.rotate(tank, self.state_halfprime.direction.value * -90)
             

@@ -1,26 +1,29 @@
 import pygame
-
-from Board import Board
-from Character import Character
-from Direction import Direction
-from RL import RL
-from GA import GA
 from tqdm import tqdm
 import time
 import sys
 import os
 
+from Board import Board
+from Character import Character
+from Direction import Direction
+from ActionFunction import ActionFunction
+from RL import RL
+from GA import GA
+
+
 NUM_TILES = 9
 TILE_SIZE = 50
-DECAY = 0.999999
-NUM_EPISODES = 1_000_000
-SAVE_EVERY = 10_000
+DECAY = 0.99997
+NUM_EPISODES = 100_000
+SAVE_EVERY = 1_000
 OPTIMAL = True # if you want to use policy as-is (no-randomness)
 gui_flag = True
 
 if gui_flag:
     global canvas
     canvas: pygame.Surface = pygame.display.set_mode((NUM_TILES * TILE_SIZE, NUM_TILES * TILE_SIZE))
+
 
 # pygame main method
 def run_game(player1: Character, player2: Character):
@@ -34,6 +37,7 @@ def run_game(player1: Character, player2: Character):
     while i < 100: 
         board = player1.next_action(board)
         if board.done:
+            # print("Player 1 wins!")
             player1.terminate(board, True)
             player2.terminate(board, False)
             break
@@ -41,6 +45,7 @@ def run_game(player1: Character, player2: Character):
         
         board = player2.next_action(board)
         if board.done:
+            # print("Player 2 wins!")
             player1.terminate(board, False)
             player2.terminate(board, True)
             break
@@ -53,7 +58,34 @@ def run_game(player1: Character, player2: Character):
             break
     refresh(board, player1, player2)
 
-def refresh(board: Board, player1: Character, player2:Character):
+
+def run_episodes(agent1: ActionFunction, agent2: ActionFunction):
+    player1: Character = None
+    player2: Character = None
+    for ep in tqdm(range(NUM_EPISODES), unit="episode"):
+        if ep % 4 == 0:
+            player1 = Character(agent1, 0, 0, Direction.DOWN, 'tank1.png')
+            player2 = Character(agent2, NUM_TILES - 1, NUM_TILES - 1, Direction.UP, 'tank2.png')
+        elif ep % 4 == 1:
+            player1 = Character(agent1, 0, NUM_TILES - 1, Direction.LEFT, 'tank1.png')
+            player2 = Character(agent2, NUM_TILES - 1, 0, Direction.RIGHT, 'tank2.png')
+        elif ep % 4 == 2:
+            player1 = Character(agent1, NUM_TILES - 1, NUM_TILES - 1, Direction.UP, 'tank1.png')
+            player2 = Character(agent2, 0, 0, Direction.DOWN, 'tank2.png')
+        else: 
+            player1 = Character(agent1, NUM_TILES - 1, 0, Direction.RIGHT, 'tank1.png')
+            player2 = Character(agent2, 0, NUM_TILES - 1, Direction.LEFT, 'tank2.png')
+
+        run_game(player1, player2)
+        if ep % SAVE_EVERY == 0 and not OPTIMAL:
+            agent1.write_to_file()
+            agent2.write_to_file()
+
+    if not OPTIMAL:
+        agent1.write_to_file()
+        agent2.write_to_file()
+
+def refresh(board: Board, player1: Character, player2: Character):
     if gui_flag:
         board.drawGrid(canvas, TILE_SIZE)
         player1.draw(canvas, TILE_SIZE)
@@ -62,8 +94,6 @@ def refresh(board: Board, player1: Character, player2:Character):
         time.sleep(.1)
 
 def rlvrl():
-    player1, player2 = None, None
-
     RL_agent1 = RL(
         optimal=OPTIMAL,
         decay=DECAY,
@@ -78,75 +108,45 @@ def rlvrl():
         num_updates_file="pkl_files/num_updates_2rlvrl.pkl", 
         epsilon_file="pkl_files/epsilon_2rlvrl.pkl")
     
-    for ep in tqdm(range(NUM_EPISODES), unit="episode"):
-        if ep % 4 == 0:
-            player1 = Character(RL_agent1, 0, 0, Direction.DOWN)
-            player2 = Character(RL_agent2, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
-        elif ep % 4 == 1:
-            player1 = Character(RL_agent1, 0, NUM_TILES - 1, Direction.LEFT)
-            player2 = Character(RL_agent2, NUM_TILES - 1, 0, Direction.RIGHT)
-        elif ep % 4 == 2:
-            player1 = Character(RL_agent1, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
-            player2 = Character(RL_agent2, 0, 0, Direction.DOWN)
-        else: 
-            player1 = Character(RL_agent1, NUM_TILES - 1, 0, Direction.RIGHT)
-            player2 = Character(RL_agent2, 0, NUM_TILES - 1, Direction.LEFT)
-
-        run_game(player1, player2)
-        if ep % SAVE_EVERY == 0 and not OPTIMAL:
-            RL_agent1.write_to_file()
-            RL_agent2.write_to_file()
-        RL_agent1.decay_epsilon()
-        RL_agent2.decay_epsilon()
-
-    if not OPTIMAL:
-        RL_agent1.write_to_file()
-        RL_agent2.write_to_file()
+    run_episodes(RL_agent1, RL_agent2)
 
 def rlvga():
-    player1, player2 = None, None
-
     RL_agent = RL(
-        optimal=OPTIMAL,
+        optimal=True,
         decay=DECAY,
-        q_table_file="pkl_files/q_table_1rlvrl.pkl",
-        num_updates_file="pkl_files/num_updates_1rlvrl.pkl",
-        epsilon_file="pkl_files/epsilon_1rlvrl.pkl")
+        q_table_file="pkl_files/q_table_rlvga.pkl",
+        num_updates_file="pkl_files/num_updates_rlvga.pkl",
+        epsilon_file="pkl_files/epsilon_rlvga.pkl")
     
     GA_agent = GA(
         optimal=OPTIMAL, 
         min_population = 4, 
-        max_population = 8, 
+        max_population = 9, 
         mutation_rate = 0.05, 
-        policies_file = 'pkl_files/policies_1gavga.pkl')
+        policies_file = 'pkl_files/policies_rlvga.pkl')
     
-    for ep in tqdm(range(NUM_EPISODES), unit="episode"):
-        if ep % 4 == 0:
-            player1 = Character(RL_agent, 0, 0, Direction.DOWN)
-            player2 = Character(GA_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
-        elif ep % 4 == 1:
-            player1 = Character(RL_agent, 0, NUM_TILES - 1, Direction.LEFT)
-            player2 = Character(GA_agent, NUM_TILES - 1, 0, Direction.RIGHT)
-        elif ep % 4 == 2:
-            player1 = Character(RL_agent, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
-            player2 = Character(GA_agent, 0, 0, Direction.DOWN)
-        else: 
-            player1 = Character(RL_agent, NUM_TILES - 1, 0, Direction.RIGHT)
-            player2 = Character(GA_agent, 0, NUM_TILES - 1, Direction.LEFT)
-        run_game(player1, player2)
-        if ep % SAVE_EVERY == 0 and not OPTIMAL:
-            RL_agent.write_to_file()
-            GA_agent.write_to_file()
-        RL_agent.decay_epsilon()
+    run_episodes(RL_agent, GA_agent)
 
-    if not OPTIMAL:
-        RL_agent.write_to_file()
-        GA_agent.write_to_file()
+
+# def agentvtrained():
+#     trained_policy = RL(
+#         optimal=True,
+#         decay=DECAY,
+#         q_table_file="pkl_files/q_table_agentvtrained.pkl",
+#         num_updates_file="pkl_files/num_updates_agentvtrained.pkl",
+#         epsilon_file="pkl_files/epsilon_agentvtrained.pkl")
+    
+#     GA_agent = GA(
+#         optimal=OPTIMAL, 
+#         min_population = 4, 
+#         max_population = 9, 
+#         mutation_rate = 0.05, 
+#         policies_file = 'pkl_files/policies_agentvtrained.pkl')
+    
+#     run_episodes(GA_agent, RL_agent)
 
 
 def gavga():
-    player1, player2 = None, None
-
     GA_agent1 = GA(
         optimal=OPTIMAL, 
         min_population = 4, 
@@ -161,29 +161,7 @@ def gavga():
         mutation_rate = 0.05, 
         policies_file = 'pkl_files/policies_2gavga.pkl')
     
-    for ep in tqdm(range(NUM_EPISODES), unit="episode"):
-        if ep % 4 == 0:
-            player1 = Character(GA_agent1, 0, 0, Direction.DOWN)
-            player2 = Character(GA_agent2, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
-        elif ep % 4 == 1:
-            player1 = Character(GA_agent1, 0, NUM_TILES - 1, Direction.LEFT)
-            player2 = Character(GA_agent2, NUM_TILES - 1, 0, Direction.RIGHT)
-        elif ep % 4 == 2:
-            player1 = Character(GA_agent1, NUM_TILES - 1, NUM_TILES - 1, Direction.UP)
-            player2 = Character(GA_agent2, 0, 0, Direction.DOWN)
-        else: 
-            player1 = Character(GA_agent1, NUM_TILES - 1, 0, Direction.RIGHT)
-            player2 = Character(GA_agent2, 0, NUM_TILES - 1, Direction.LEFT)
-
-        run_game(player1, player2)
-        if ep % SAVE_EVERY == 0 and not OPTIMAL:
-            GA_agent1.write_to_file()
-            GA_agent2.write_to_file()
-
-    if not OPTIMAL:
-        GA_agent1.write_to_file()
-        GA_agent2.write_to_file()
-
+    run_episodes(GA_agent1, GA_agent2)
 
 if __name__ == "__main__":
     # if reset argument is passed, delete all .pkl files

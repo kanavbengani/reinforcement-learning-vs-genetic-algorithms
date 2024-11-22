@@ -164,6 +164,10 @@ class GA(ActionFunction):
                             new_policies[i][state][np.random.randint(0, len(Action))] = 1
                 
                 self.policies = new_policies
+                l = list(self.policies.items())
+                np.random.shuffle(l)
+                self.policies = dict(l)
+
                 self.fitness = {0: {}}
                 self.cur_policy = 0
         
@@ -174,8 +178,6 @@ class GA(ActionFunction):
         """
         Write the Q-table, number of updates, and epsilon value to files.
         """
-        if len(self.policies) < self.max_population:
-            raise Exception('Not enough policies to write to file.')
         with open(self.policies_file, 'wb') as f:
             pickle.dump(self.policies, f)
 
