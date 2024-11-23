@@ -56,9 +56,9 @@ class ActionFunction():
             cur_col = col + Direction.dir_delta[direction][1]
 
             while 0 <= cur_row < height and 0 <= cur_col < width:
-                # if grid[cur_row][cur_col] == Tile.WALL:
-                #     board.setGrid(cur_row, cur_col, Tile.EMPTY)
-                #     break
+                if grid[cur_row][cur_col] == Tile.WALL:
+                    # board.setGrid(cur_row, cur_col, Tile.EMPTY)
+                    break
                 if grid[cur_row][cur_col] in [Tile.CHARACTER]:
                     board.endGame()
                     break

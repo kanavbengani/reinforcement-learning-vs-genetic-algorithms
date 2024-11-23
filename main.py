@@ -3,6 +3,7 @@ from tqdm import tqdm
 import time
 import sys
 import os
+import numpy as np
 
 from Board import Board
 from Character import Character
@@ -14,11 +15,11 @@ from GA import GA
 
 NUM_TILES = 9
 TILE_SIZE = 50
-DECAY = 0.99997
-NUM_EPISODES = 100_000
-SAVE_EVERY = 1_000
-OPTIMAL = True # if you want to use policy as-is (no-randomness)
-gui_flag = True
+DECAY = 0.999995
+NUM_EPISODES = 1_000_000
+SAVE_EVERY = 10_000
+OPTIMAL = False # if you want to use policy as-is (no-randomness)
+gui_flag = False
 
 if gui_flag:
     global canvas
@@ -76,7 +77,10 @@ def run_episodes(agent1: ActionFunction, agent2: ActionFunction):
             player1 = Character(agent1, NUM_TILES - 1, 0, Direction.RIGHT, 'tank1.png')
             player2 = Character(agent2, 0, NUM_TILES - 1, Direction.LEFT, 'tank2.png')
 
-        run_game(player1, player2)
+        players = np.array([player1, player2])
+        np.random.shuffle(players)
+        run_game(players[0], players[1])
+        
         if ep % SAVE_EVERY == 0 and not OPTIMAL:
             agent1.write_to_file()
             agent2.write_to_file()

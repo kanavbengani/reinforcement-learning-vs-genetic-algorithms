@@ -1,4 +1,3 @@
-from typing import Tuple
 from Direction import Direction
 
 class State():
