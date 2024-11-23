@@ -74,6 +74,15 @@ class ActionFunction():
     def terminate(state: State, action: Action, state_prime: State, won: bool) -> None:
         pass
 
+    @abstractmethod
+    def write_to_file(self) -> None:
+        pass
+
+    @abstractmethod
+    def load_data(self) -> None:
+        pass
+
+    
 class InvalidMove(Exception):
     pass
 

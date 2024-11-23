@@ -20,8 +20,8 @@ class GA(ActionFunction):
             policies_file: str = 'policies.pkl'):
         
         self.policies: dict = {i: {} for i in range(max_population)}
-        self.policy_explored: int = 0
-        self.fitness: dict = {0: ()}
+        self.num_episodes: int = 0
+        self.fitness: dict = {}
         self.cur_policy: int = 0
         self.turns: int = 0
         self.mutation_rate: float = mutation_rate
@@ -29,22 +29,8 @@ class GA(ActionFunction):
         self.max_population: int = max_population
         self.policies_file: str = policies_file
         self.optimal: bool = optimal
-        self.winning_policy = None
         self.load_data()
-        # 1. win: 1 turn
-        # 2. win: 10 turns
-        # 3. lost: 10 turns
-        # 4. lost: 1 turns
-        # win: 1, lost: 0
-        # [(1, 1), (0, 10)]
-        # win: 1, loss: 0
-        
-        # sorted(lst, key=lambda x: (-x[0], x[1] if x[0] == 1 else -1 * x[1]))
 
-        # top 4 out of 8 original
-        # new set of 4 policies + keeping the old top 4
-        # run ti with this as the new "original"
-        # best fitness at the end of all episodes is used for training
 
     def apply(self, state: State, action: Action, state_prime: State, board: Board) -> Tuple[State, Action, Board]:        
         state_prime_str = str(state_prime)
@@ -109,16 +95,22 @@ class GA(ActionFunction):
 
     def terminate(self, state: State, action: Action, state_prime: State, won: bool) -> None:
         if not self.optimal:
-            self.fitness[self.cur_policy] = (1 if won else 0, self.turns)
-            self.policy_explored += 1
-            self.cur_policy += 1
+            if self.cur_policy in self.fitness:
+                self.fitness[self.cur_policy] += 1 if won else 0
+            else:
+                self.fitness[self.cur_policy] = 1 if won else 0
+            # self.fitness[self.cur_policy] = (1 if won else 0, self.turns)
+            self.num_episodes += 1
+            if self.num_episodes % 4 == 0:    
+                self.cur_policy += 1
             self.turns = 0
 
             if self.cur_policy >= self.max_population: 
                 best_fitnesses: dict = {
                     k: v for k, v in sorted(
                         self.fitness.items(), 
-                        key=lambda item: (-item[1][0], item[1][1] if item[1][0] == 1 else -1 * item[1][1]))}
+                        key=lambda item: -item[1])}
+                        # key=lambda item: (-item[1][0], item[1][1] if item[1][0] == 1 else -1 * item[1][1]))}
 
                 new_policies = {}
                 for i in range(self.min_population): 
@@ -168,7 +160,7 @@ class GA(ActionFunction):
                 np.random.shuffle(l)
                 self.policies = dict(l)
 
-                self.fitness = {0: {}}
+                self.fitness = {}
                 self.cur_policy = 0
         
 
@@ -178,8 +170,9 @@ class GA(ActionFunction):
         """
         Write the Q-table, number of updates, and epsilon value to files.
         """
-        with open(self.policies_file, 'wb') as f:
-            pickle.dump(self.policies, f)
+        if not self.optimal:
+            with open(self.policies_file, 'wb') as f:
+                pickle.dump(self.policies, f)
 
 
     def load_data(

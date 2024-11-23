@@ -215,12 +215,13 @@ class RL(ActionFunction):
         """
         Write the Q-table, number of updates, and epsilon value to files.
         """
-        with open(self.q_table_file, 'wb') as f:
-            pickle.dump(self.q_table, f)
-        with open(self.num_updates_file, 'wb') as f:
-            pickle.dump(self.num_updates, f)
-        with open(self.epsilon_file, 'wb') as f:
-            pickle.dump(self.epsilon, f)
+        if not self.optimal:
+            with open(self.q_table_file, 'wb') as f:
+                pickle.dump(self.q_table, f)
+            with open(self.num_updates_file, 'wb') as f:
+                pickle.dump(self.num_updates, f)
+            with open(self.epsilon_file, 'wb') as f:
+                pickle.dump(self.epsilon, f)
 
 
     def load_data(
