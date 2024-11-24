@@ -38,6 +38,9 @@ class GA(ActionFunction):
 
     def apply(self, state: State, action: Action, state_prime: State, board: Board) -> Tuple[State, Action, Board]:        
         state_prime_str = str(state_prime)
+        if self.cur_policy not in self.policies:
+            self.policies[self.cur_policy] = {}
+
         if state_prime_str not in self.policies[self.cur_policy]:
             self.policies[self.cur_policy][state_prime_str] = np.zeros(len(Action))
             self.policies[self.cur_policy][state_prime_str][np.random.randint(0, len(Action))] = 1

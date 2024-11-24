@@ -15,11 +15,11 @@ from GA import GA
 
 NUM_TILES = 9
 TILE_SIZE = 50
-DECAY = 0.999995
+DECAY = 0.9995
 NUM_EPISODES = 1_000_000
 SAVE_EVERY = 10_000
-OPTIMAL = False # if you want to use policy as-is (no-randomness)
-gui_flag = False
+OPTIMAL = True # if you want to use policy as-is (no-randomness)
+gui_flag = True
 
 THRESHOLD = 90
 
@@ -87,7 +87,7 @@ def run_episodes(agent1: ActionFunction, agent2: ActionFunction, break_when_thre
             player2 = Character(agent2, 0, NUM_TILES - 1, Direction.LEFT, 'tank2.png')
 
         players = np.array([player1, player2])
-        np.random.shuffle(players)
+        # np.random.shuffle(players)
         winner = run_game(players[0], players[1])
         
         if ep % SAVE_EVERY == 0 and not OPTIMAL:
@@ -122,7 +122,7 @@ def refresh(board: Board, player1: Character, player2: Character):
         player1.draw(canvas, TILE_SIZE)
         player2.draw(canvas, TILE_SIZE)
         pygame.display.flip()
-        time.sleep(.1)
+        time.sleep(.05)
 
 def training_opt():
     RL_agent1 = RL(
@@ -168,7 +168,7 @@ def rlvga():
         epsilon_file="pkl_files/epsilon_optvrl.pkl")
     
     GA_agent = GA(
-        optimal=OPTIMAL, 
+        optimal=True, 
         min_population = 4, 
         max_population = 9, 
         mutation_rate = 0.05, 
