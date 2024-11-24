@@ -18,8 +18,8 @@ TILE_SIZE = 50
 DECAY = 0.999995
 NUM_EPISODES = 1_000_000
 SAVE_EVERY = 10_000
-OPTIMAL = True # if you want to use policy as-is (no-randomness)
-gui_flag = True
+OPTIMAL = False # if you want to use policy as-is (no-randomness)
+gui_flag = False
 
 THRESHOLD = 90
 
@@ -103,20 +103,18 @@ def run_episodes(agent1: ActionFunction, agent2: ActionFunction, break_when_thre
             if len(wins_agent_2) > 100:
                 wins_agent_2 = np.delete(wins_agent_2, 0)
                 
-        print(wins_agent_2.sum())
-        # 270795/1000000
-        # 71635/1000000
-
         if len(wins_agent_2) == 100 and wins_agent_2.sum() > THRESHOLD:
             print("AGENT TRAINED SUCCESSFULLY")
 
             if not OPTIMAL:
                 agent2.write_to_file()
-            break
+            return ep
 
     if not OPTIMAL:
         agent1.write_to_file()
         agent2.write_to_file()
+
+    return NUM_EPISODES
 
 def refresh(board: Board, player1: Character, player2: Character):
     if gui_flag:
@@ -170,7 +168,7 @@ def rlvga():
         epsilon_file="pkl_files/epsilon_optvrl.pkl")
     
     GA_agent = GA(
-        optimal=True, 
+        optimal=OPTIMAL, 
         min_population = 4, 
         max_population = 9, 
         mutation_rate = 0.05, 
@@ -181,9 +179,9 @@ def rlvga():
 def gavrl():
     GA_agent = GA(
         optimal=True, 
-        min_population = 2, 
-        max_population = 4, 
-        mutation_rate = 0.10, 
+        min_population = 4, 
+        max_population = 9, 
+        mutation_rate = 0.05, 
         policies_file = 'pkl_files/policies_optvga.pkl')
     
     RL_agent = RL(
@@ -193,7 +191,7 @@ def gavrl():
         num_updates_file="pkl_files/num_updates_2optvrl.pkl",
         epsilon_file="pkl_files/epsilon_2optvrl.pkl")
     
-    run_episodes(GA_agent, RL_agent, True)
+    run_episodes(GA_agent, RL_agent)
 
 def optvga():
     OPT_agent = RL(
@@ -212,7 +210,36 @@ def optvga():
     
     run_episodes(OPT_agent, GA_agent, True)
 
+
+
+def optvga_10():
+    OPT_agent = RL(
+        optimal=True,
+        decay=DECAY,
+        q_table_file="pkl_files/q_table_opt.pkl",
+        num_updates_file="pkl_files/num_updates_opt.pkl",
+        epsilon_file="pkl_files/epsilon_opt.pkl")
     
+    total_episodes = 0
+    for _ in range(10):
+        # removes all previous files
+        for item in os.listdir("pkl_files/"):
+            if item.__contains__(f"optvga.pkl"):
+                os.remove(os.path.join("pkl_files/", item))
+
+        GA_agent = GA(
+            optimal=OPTIMAL, 
+            min_population = 4, 
+            max_population = 9, 
+            mutation_rate = 0.05, 
+            policies_file = 'pkl_files/policies_optvga.pkl')
+
+        total_episodes += run_episodes(OPT_agent, GA_agent, True)
+        
+
+    print("Average Number of Episodes " + str(DECAY) + ": " + str(total_episodes / 10))
+
+
 def optvrl():
     OPT_agent = RL(
         optimal=True,
@@ -229,6 +256,36 @@ def optvrl():
         epsilon_file="pkl_files/epsilon_optvrl.pkl")
     
     run_episodes(OPT_agent, RL_agent, True)
+
+    
+def optvrl_10():
+    OPT_agent = RL(
+        optimal=True,
+        decay=DECAY,
+        q_table_file="pkl_files/q_table_opt.pkl",
+        num_updates_file="pkl_files/num_updates_opt.pkl",
+        epsilon_file="pkl_files/epsilon_opt.pkl")
+    
+    total_episodes = 0
+    for _ in range(10):
+        # removes all previous files
+        for item in os.listdir("pkl_files/"):
+            if item.__contains__(f"optvrl.pkl"):
+                os.remove(os.path.join("pkl_files/", item))
+
+        RL_agent = RL(
+        optimal=OPTIMAL,
+        decay=DECAY,
+        q_table_file="pkl_files/q_table_optvrl.pkl",
+        num_updates_file="pkl_files/num_updates_optvrl.pkl",
+        epsilon_file="pkl_files/epsilon_optvrl.pkl")
+
+        total_episodes += run_episodes(OPT_agent, RL_agent, True)
+        
+
+    print("Average Number of Episodes " + str(DECAY) + ": " + str(total_episodes / 10))
+
+
 
 
 def gavga():
@@ -271,6 +328,10 @@ if __name__ == "__main__":
             optvga()
         elif sys.argv[1] == "optvrl":
             optvrl()
+        elif sys.argv[1] == "optvrl_10":
+            optvrl_10()
+        elif sys.argv[1] == "optvga_10":
+            optvga_10()
         elif sys.argv[1] == "training_opt":
             training_opt()
         else: 
