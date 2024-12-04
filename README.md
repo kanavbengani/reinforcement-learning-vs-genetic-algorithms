@@ -32,3 +32,12 @@ Run the file `main.py` with one of the following as a command line argument:
 * `optvrl_10`: Play 10 games with the optimal agent as the first player vs. a RL agent as the second player
 * `optvga_10`: Play 10 games with the optimal agent as the first player vs. a GA agent as the second player
 * `training_opt`: Train the optimal agent
+
+If you want to view the GUI while the games are running, make sure the 'gui_flag' is set to 'True' in 'main.py'
+If you want to play the game without training the agents during the game, make sure 'OPTIMAL' is set to 'True' in 'main.py'
+Some of these commands can be followed by 'reset' afterwards, indicating that you are removing the existing information on the agent in 'pkl_files' and training a new one. These include:
+
+* 'rlvrl'
+* 'gavga'
+* 'optvrl'
+* 'optvga'
