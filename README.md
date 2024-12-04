@@ -39,7 +39,7 @@ If you want to play the game without training the agents during the game, make s
 
 Some of these commands can be followed by 'reset' afterwards, indicating that you are removing the existing information on the agent in 'pkl_files' and training a new one. These include:
 
-* 'rlvrl'
-* 'gavga'
-* 'optvrl'
-* 'optvga'
+* `rlvrl reset`
+* `gavga reset`
+* `optvrl reset`
+* `optvga reset`
